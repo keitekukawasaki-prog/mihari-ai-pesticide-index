@@ -1,0 +1,37 @@
+name: Update pesticide index
+
+# FAMICの農薬登録情報は毎月2日・16日に更新されるため、その翌朝（JST 9:00）に実行する。
+# GitHub ActionsのcronはUTC基準なので、UTC 0:00 = JST 9:00 を指定している。
+on:
+  schedule:
+    - cron: '0 0 2,16 * *'
+  workflow_dispatch: {}  # 手動実行用（GitHubの「Run workflow」ボタンから即時実行できる）
+
+permissions:
+  contents: write  # 生成したJSONをリポジトリにコミットするために必要
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリを取得
+        uses: actions/checkout@v4
+
+      - name: Pythonをセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: 依存ライブラリをインストール
+        run: pip install requests
+
+      - name: 農薬索引を生成
+        run: python build_pesticide_index_famic.py
+
+      - name: 変更があればコミット・push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pesticide_index.json
+          git diff --staged --quiet || git commit -m "農薬索引を自動更新 ($(date +'%Y-%m-%d'))"
+          git push
